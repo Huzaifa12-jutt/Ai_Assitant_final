@@ -2,7 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../models/aria_models.dart';
-import '../services/groq_service.dart';
+import '../services/grok_service.dart';
 
 const _uuid = Uuid();
 
@@ -69,7 +69,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     ),
   ]));
 
-  final _groq = GroqService.instance;
+  final _grok = GrokService.instance;
   final List<Map<String, String>> _history = [];
 
   Future<void> send(String text, {required ReminderNotifier reminderNotifier}) async {
@@ -88,12 +88,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _history.add({'role': 'user', 'content': text});
 
     try {
-      final intent = _groq.detectIntent(text);
+      final intent = _grok.detectIntent(text);
       ChatMessage ariaMsg;
 
       switch (intent) {
         case ChatIntent.emailSummary:
-          final aiText = await _groq.chat(text, history: _history);
+          final aiText = await _grok.chat(text, history: _history);
           ariaMsg = ChatMessage(
             id: _uuid.v4(), content: aiText, isUser: false,
             sentAt: DateTime.now(), type: MessageType.emailList,
@@ -102,13 +102,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
           break;
 
         case ChatIntent.setReminder:
-          final parsed = _groq.parseReminder(text);
+          final parsed = _grok.parseReminder(text);
           String aiText;
           List<ReminderModel>? createdReminders;
           if (parsed != null) {
             final r = reminderNotifier.add(title: parsed.title, remindAt: parsed.remindAt);
             createdReminders = [r];
-            aiText = await _groq.chat(
+            aiText = await _grok.chat(
               'I just set a reminder: "${parsed.title}" for ${r.fullDateLabel}. Confirm briefly.',
               history: _history,
             );
@@ -124,7 +124,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
         case ChatIntent.viewReminders:
           final all = reminderNotifier.state;
-          final aiText = await _groq.chat(
+          final aiText = await _grok.chat(
             'User wants reminders. They have ${all.length} total, ${reminderNotifier.pendingCount} pending, ${reminderNotifier.overdueCount} overdue.',
             history: _history,
           );
@@ -136,7 +136,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           break;
 
         case ChatIntent.dayBrief:
-          final briefText = await _groq.generateDayBrief(
+          final briefText = await _grok.generateDayBrief(
             pendingReminders: reminderNotifier.pendingCount,
             overdueReminders: reminderNotifier.overdueCount,
             urgentEmails: EmailModel.samples.where((e) => e.priority == EmailPriority.urgent).length,
@@ -152,7 +152,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           break;
 
         case ChatIntent.calendarView:
-          final aiText = await _groq.chat(text, history: _history);
+          final aiText = await _grok.chat(text, history: _history);
           ariaMsg = ChatMessage(
             id: _uuid.v4(), content: aiText, isUser: false,
             sentAt: DateTime.now(), type: MessageType.calendarList,
@@ -162,7 +162,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
         case ChatIntent.draftReply:
           final targetEmail = EmailModel.samples.first;
-          final draft = await _groq.draftReply(targetEmail);
+          final draft = await _grok.draftReply(targetEmail);
           ariaMsg = ChatMessage(
             id: _uuid.v4(),
             content: '✍️ Here\'s a draft reply to **${targetEmail.subject}**:\n\n$draft',
@@ -195,7 +195,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           break;
 
         default:
-          final aiText = await _groq.chat(text, history: _history);
+          final aiText = await _grok.chat(text, history: _history);
           ariaMsg = ChatMessage(id: _uuid.v4(), content: aiText,
               isUser: false, sentAt: DateTime.now());
       }
